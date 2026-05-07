@@ -1,0 +1,24 @@
+{
+	"geode": "5.7.1",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"id": "chizz.continuous-physics-api",
+	"name": "Continuous Physics API",
+	"version": "v1.0.0",
+	"developer": "chizz",
+	"description": "API for developers who want subtick physics.",
+	"tags": [
+		"api",
+		"gameplay",
+		"developer"
+	],
+	"api": {
+		"include": [
+			"include/*.hpp"
+		]
+	}
+}
