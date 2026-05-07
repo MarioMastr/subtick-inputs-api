@@ -20,5 +20,8 @@
 		"include": [
 			"include/*.hpp"
 		]
+	},
+	"links": {
+		"source": "https://github.com/ch-zzzy/GDContinuousPhysicsAP"
 	}
 }
