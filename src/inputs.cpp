@@ -6,32 +6,32 @@ using namespace continuousphysics::physics;
 
 namespace continuousphysics::input {
 
-	void processInputsUpToTimestamp(PlayerObject* player) {
+	void processInputs(PlayerObject* player) {
 		PlayLayer* playLayer = PlayLayer::get();
 		auto* playerState = tryGetPlayerState(player);
 		if (!playLayer) return;
 		if (!playerState) return;
 
-		bool isPlayer1 = player->isPlayer1();
-
-		double& lastEventTimestamp = playerState->lastEventTimestamp;
-		double tickTimestamp = g_physicsState.levelStartTimestamp +
-			g_physicsState.tickCount * (1.0 / g_tps);
+		double& lastEventTimestamp = playerState->m_lastEventTimestamp;
+		double tickTimestamp = g_physicsState.m_levelStartTimestamp +
+			g_physicsState.m_tickCount * (1.0 / g_tps);
 
 		double inputCheckInterval = 1.0 / g_inputHz;
-		double nextInputCheck = g_physicsState.levelStartTimestamp +
-			g_inputChecksCount * inputCheckInterval;
+		double nextInputCheck = g_physicsState.m_levelStartTimestamp +
+			g_physicsState.m_inputChecksCount * inputCheckInterval;
 
 		while (nextInputCheck < lastEventTimestamp) {
-			g_inputChecksCount++;
+			g_physicsState.m_inputChecksCount++;
 			nextInputCheck += inputCheckInterval;
 		}
 
+		auto& inputQueue = playLayer->m_queuedButtons;
+		bool isPlayer1 = player->isPlayer1();
 		int inputIdx = 0;
 
 		while (nextInputCheck <= tickTimestamp) {
-			while (inputIdx < static_cast<int>(g_inputQueue.size())) {
-				auto& input = g_inputQueue[inputIdx];
+			while (inputIdx < static_cast<int>(inputQueue.size())) {
+				auto& input = inputQueue[inputIdx];
 
 				bool inputIsP1 = !input.m_isPlayer2;
 				if (inputIsP1 != isPlayer1) {
@@ -40,6 +40,9 @@ namespace continuousphysics::input {
 				}
 
 				if (input.m_timestamp >= nextInputCheck) break;
+
+				advancePlayerToTimestamp(
+					player, input.m_timestamp, lastEventTimestamp);
 
 				playLayer->handleButton(input.m_isPush,
 					static_cast<int>(input.m_button), isPlayer1);
@@ -61,15 +64,13 @@ namespace continuousphysics::input {
 				inputIdx++;
 			}
 
-			g_inputChecksCount++;
+			g_physicsState.m_inputChecksCount++;
 			nextInputCheck += inputCheckInterval;
 		}
 	}
 
 	void handleInput(PlayerButtonCommand& input, PlayerObject* player,
 		double& lastEventTimestamp) {
-		advancePlayerToTimestamp(player, input.m_timestamp, lastEventTimestamp);
-
 		bool isMini = std::abs(player->m_vehicleSize - 1.0f) > 0.01f;
 		float generalSizeScale = isMini ? 0.8f : 1.0f;
 		int dir = player->flipMod();
@@ -80,7 +81,6 @@ namespace continuousphysics::input {
 			} else if (player->m_isDart) {
 				double baseVel = player->getCurrentXVelocity();
 				double yVel = baseVel * -1.0 * dir;
-				if (isMini) yVel *= 2.0; // currently unsure about this
 				player->m_yVelocity = quantizeYVelocity(yVel);
 			}
 
@@ -105,7 +105,6 @@ namespace continuousphysics::input {
 		} else if (player->m_isDart) {
 			double baseVel = player->getCurrentXVelocity();
 			double yVel = baseVel * 1.0 * dir;
-			if (isMini) yVel *= 2.0;
 			player->m_yVelocity = quantizeYVelocity(yVel);
 
 		} else if (player->m_isBall) {
@@ -118,14 +117,12 @@ namespace continuousphysics::input {
 			}
 
 		} else if (player->m_isSwing) {
-			if (player->m_isOnGround || player->m_stateRingJump) {
-				player->flipGravity(!player->m_isUpsideDown, true);
-				player->m_yVelocity =
-					quantizeYVelocity(player->m_yVelocity * 0.8);
-				player->m_jumpBuffered = false;
-				player->m_stateRingJump = false;
-				player->m_isOnGround = false;
-			}
+			double savedVel = player->m_yVelocity;
+			player->flipGravity(!player->m_isUpsideDown, true);
+			player->m_yVelocity = quantizeYVelocity(savedVel * 0.8);
+			player->m_jumpBuffered = false;
+			player->m_stateRingJump = false;
+			player->m_isOnGround = false;
 
 		} else if (player->m_isSpider) {
 			if (player->m_isOnGround) {
@@ -135,8 +132,7 @@ namespace continuousphysics::input {
 
 		} else if (player->m_isRobot) {
 			if (player->m_isOnGround) {
-				float impulse =
-					(float) player->m_yStart * 0.5f * generalSizeScale;
+				float impulse = player->m_yStart * 0.5f * generalSizeScale;
 				player->m_yVelocity = quantizeYVelocity(dir * impulse);
 				player->m_isOnGround = false;
 				player->m_isOnGround2 = false;
@@ -148,7 +144,7 @@ namespace continuousphysics::input {
 
 		} else {
 			if (player->m_isOnGround) {
-				float impulse = (float) player->m_yStart * generalSizeScale;
+				float impulse = player->m_yStart * generalSizeScale;
 				player->m_yVelocity = quantizeYVelocity(dir * impulse);
 				player->m_isOnGround = false;
 				player->m_isOnGround2 = false;

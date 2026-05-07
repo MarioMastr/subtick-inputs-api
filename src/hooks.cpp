@@ -16,14 +16,16 @@ class $modify(PlayLayer) {
 		this->m_clickBetweenSteps = false;
 		this->m_clickOnSteps = false;
 
-		g_physicsState.levelStartTimestamp = geode::utils::getInputTimestamp();
-		g_physicsState.tickCount = 0;
-		g_inputChecksCount = 0;
-		g_physicsState.firstFrame = true;
-		g_inputQueue.clear();
+		g_physicsState.m_levelStartTimestamp =
+			geode::utils::getInputTimestamp();
+		g_physicsState.m_tickCount = 0;
+		g_physicsState.m_inputChecksCount = 0;
+		g_physicsState.m_firstFrame = true;
 
-		g_physicsState.player1.lastEventTimestamp = g_physicsState.levelStartTimestamp;
-		g_physicsState.player2.lastEventTimestamp = g_physicsState.levelStartTimestamp;
+		g_physicsState.m_player1.m_lastEventTimestamp =
+			g_physicsState.m_levelStartTimestamp;
+		g_physicsState.m_player2.m_lastEventTimestamp =
+			g_physicsState.m_levelStartTimestamp;
 
 		return true;
 	}
@@ -31,14 +33,16 @@ class $modify(PlayLayer) {
 	void resetLevel() {
 		PlayLayer::resetLevel();
 
-		g_physicsState.firstFrame = true;
-		g_physicsState.tickCount = 0;
-		g_inputChecksCount = 0;
-		g_physicsState.levelStartTimestamp = geode::utils::getInputTimestamp();
-		g_inputQueue.clear();
+		g_physicsState.m_firstFrame = true;
+		g_physicsState.m_tickCount = 0;
+		g_physicsState.m_inputChecksCount = 0;
+		g_physicsState.m_levelStartTimestamp =
+			geode::utils::getInputTimestamp();
 
-		g_physicsState.player1.lastEventTimestamp = g_physicsState.levelStartTimestamp;
-		g_physicsState.player2.lastEventTimestamp = g_physicsState.levelStartTimestamp;
+		g_physicsState.m_player1.m_lastEventTimestamp =
+			g_physicsState.m_levelStartTimestamp;
+		g_physicsState.m_player2.m_lastEventTimestamp =
+			g_physicsState.m_levelStartTimestamp;
 	}
 
 	void onQuit() {
@@ -70,27 +74,17 @@ class $modify(GJBaseGameLayer) {
 			return;
 		}
 
-		if (g_physicsState.firstFrame) {
-			g_physicsState.firstFrame = false;
+		if (g_physicsState.m_firstFrame) {
+			g_physicsState.m_firstFrame = false;
 			GJBaseGameLayer::update(dt);
 			return;
 		}
 
 		if (playLayer->m_playerDied) {
-			g_physicsState.firstFrame = true;
+			g_physicsState.m_firstFrame = true;
 			GJBaseGameLayer::update(dt);
 			return;
 		}
-
-		g_inputQueue.insert(g_inputQueue.end(),
-			playLayer->m_queuedButtons.begin(),
-			playLayer->m_queuedButtons.end());
-		playLayer->m_queuedButtons.clear();
-
-		std::sort(g_inputQueue.begin(), g_inputQueue.end(),
-			[](PlayerButtonCommand const& a, PlayerButtonCommand const& b) {
-				return a.m_timestamp < b.m_timestamp;
-			});
 
 		GJBaseGameLayer::update(dt);
 
@@ -100,16 +94,17 @@ class $modify(GJBaseGameLayer) {
 			? playLayer->m_player2
 			: nullptr;
 
-		if (!p1->m_isDashing) {
+		advancePlayerToTimestamp(
+			p1, frameEnd, g_physicsState.m_player1.m_lastEventTimestamp);
+		if (p2) {
 			advancePlayerToTimestamp(
-				p1, frameEnd, g_physicsState.player1.lastEventTimestamp);
+				p2, frameEnd, g_physicsState.m_player2.m_lastEventTimestamp);
 		}
-		if (p2 && !p2->m_isDashing) {
-			advancePlayerToTimestamp(
-				p2, frameEnd, g_physicsState.player2.lastEventTimestamp);
-		}
+	}
 
-		g_inputQueue.clear();
+	void processCommands(float dt, bool isHalfTick, bool isLastTick) {
+		if (g_modActive) return;
+		GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
 	}
 };
 
