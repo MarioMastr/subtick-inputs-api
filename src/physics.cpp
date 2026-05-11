@@ -1,22 +1,15 @@
 #include <ContinuousPhysics.hpp>
 
-using namespace continuousphysics::states;
-using namespace continuousphysics::config;
+#include "api/private.hpp"
+
+using namespace continuousphysics;
 
 namespace continuousphysics::physics {
-
-	void updateTPS(float tps) {
-		if (g_subframesEnabled) {
-			g_tps = g_inputHz * 4.0f;
-		} else {
-			g_tps = tps;
-		}
-	}
 
 	double quantizeYVelocity(double velocity) {
 		velocity = std::clamp(velocity, -1000.0, 1000.0);
 
-		if (g_velocityUnroundingEnabled) {
+		if (Config::get().isVelocityUnroundingEnabled()) {
 			return velocity;
 		}
 
@@ -45,7 +38,7 @@ namespace continuousphysics::physics {
 			if (player->m_isShip || player->m_isBird || player->m_isSwing) {
 				divisor = 0.85f;
 			} else if (player->m_isDart) {
-				divisor = 1.0f; // useless since wave has no gravity accel
+				divisor = 1.0f;
 			} else {
 				divisor = 0.8f;
 			}
@@ -104,7 +97,7 @@ namespace continuousphysics::physics {
 		float scaledDt = 60.0f / tps * 0.9f;
 		float gravPerTick =
 			getBaseGravity(player) * getGravityCoefficient(player) * scaledDt;
-		if (!g_velocityUnroundingEnabled) {
+		if (!Config::get().isVelocityUnroundingEnabled()) {
 			gravPerTick = std::round(gravPerTick * 1000.0f) / 1000.0f;
 		}
 		return gravPerTick * tps;
@@ -113,6 +106,7 @@ namespace continuousphysics::physics {
 	float evalYPosition(PlayerObject* player, double t) {
 		float yPos = player->getPositionY();
 		double yVel = player->m_yVelocity;
+		float tps = Config::get().getTPS();
 
 		if (player->m_isDashing) {
 			double xSpeed = player->getCurrentXVelocity();
@@ -127,10 +121,10 @@ namespace continuousphysics::physics {
 			return yPos + static_cast<float>(yVel * t * 60.0);
 		}
 
-		float g = getGravityAcceleration(player, g_tps);
+		float g = getGravityAcceleration(player, tps);
 		return yPos +
 			static_cast<float>(
-				(yVel * t - 0.5 * g * t * (t + 1.0 / g_tps)) * 54.0);
+				(yVel * t - 0.5 * g * t * (t + 1.0 / tps)) * 54.0);
 	}
 
 	float evalXPosition(PlayerObject* player, double t) {
@@ -138,7 +132,7 @@ namespace continuousphysics::physics {
 		double xSpeed = player->getCurrentXVelocity();
 		int dir = player->reverseMod();
 
-		return xPos + (xSpeed * dir * t * 60.0);
+		return xPos + static_cast<float>(xSpeed * dir * t * 60.0);
 	}
 
 	void advancePlayerToTimestamp(
@@ -160,13 +154,14 @@ namespace continuousphysics::physics {
 	}
 
 	void onPostCollision(PlayerObject* player) {
-		auto* playerState = tryGetPlayerState(player);
+		auto& physicsState = ContinuousPhysicsState::get();
+		auto* playerState = physicsState.tryGetPlayerState(player);
 		if (!playerState) return;
-		double& lastEventTimestamp = playerState->m_lastEventTimestamp;
 
-		lastEventTimestamp = g_physicsState.m_levelStartTimestamp +
-			(g_physicsState.m_tickCount - 1) * (1.0 / g_tps);
+		auto* playLayer = PlayLayer::get();
+		if (!playLayer) return;
 
+		playerState->m_lastEventTimestamp = playLayer->m_timestamp;
 		player->m_yVelocity = quantizeYVelocity(player->m_yVelocity);
 	}
 

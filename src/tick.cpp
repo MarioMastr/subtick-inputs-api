@@ -1,47 +1,47 @@
 #include <ContinuousPhysics.hpp>
 
-using namespace continuousphysics::states;
-using namespace continuousphysics::config;
+#include "api/private.hpp"
+
+using namespace continuousphysics;
 
 namespace continuousphysics::tick {
 
 	bool useVanillaTick(PlayerObject* player) {
 		PlayLayer* playLayer = PlayLayer::get();
-		return !playLayer || !g_modActive || player->m_isDashing;
+		return !playLayer || !Config::get().isModActive() ||
+			player->m_isDashing;
 	}
 
 	void preTick(PlayerObject* player) {
-		input::processInputs(player);
-
-		/* 
-			pre-compensate gravity: add what vanilla will subtract,
-		 	so vanilla's gravity application nets to zero.
-		 	the formula handles gravity interpolation instead.
+		/*
+			pre-compensate gravity: add what vanilla will subtract
+			so vanilla's gravity application nets to zero
+			the formula handles gravity interpolation instead
 		*/
 		if (!player->m_isDart && !player->m_isDashing) {
 			// gravity is part of robot hold mechanic
 			// let vanilla handle it without pre-compensation
 			if (!(player->m_isRobot && player->m_jumpBuffered)) {
+				float tps = Config::get().getTPS();
 				float gravPerTick =
-					physics::getGravityAcceleration(player, g_tps) / g_tps;
+					physics::getGravityAcceleration(player, tps) / tps;
 				int dir = player->flipMod();
 				player->m_yVelocity += static_cast<double>(dir * gravPerTick);
 			}
 		}
 	}
 
-	void postTick(PlayerObject* player) {
-		auto* playerState = tryGetPlayerState(player);
+	void postTick(PlayerObject* player, float dt) {
+		auto* playLayer = PlayLayer::get();
+		if (!playLayer) return;
+
+		double tickEnd = playLayer->m_timestamp + static_cast<double>(dt);
+
+		auto* playerState =
+			ContinuousPhysicsState::get().tryGetPlayerState(player);
 		if (!playerState) return;
 
-		double tickTimestamp = g_physicsState.m_levelStartTimestamp +
-			g_physicsState.m_tickCount * (1.0 / g_tps);
-
 		physics::advancePlayerToTimestamp(
-			player, tickTimestamp, playerState->m_lastEventTimestamp);
-
-		if (player->isPlayer1()) {
-			g_physicsState.m_tickCount++;
-		}
+			player, tickEnd, playerState->m_lastEventTimestamp);
 	}
 } // namespace continuousphysics::tick

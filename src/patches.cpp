@@ -1,5 +1,7 @@
 #include <ContinuousPhysics.hpp>
 
+#include "api/private.hpp"
+
 struct PatchGroup {
 	std::vector<Patch*> patches;
 
@@ -41,4 +43,5 @@ namespace continuousphysics::patches {
 
 		s_velocityUnroundingNops.toggle(enable);
 	}
+
 } // namespace continuousphysics::patches
