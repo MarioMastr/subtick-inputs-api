@@ -91,4 +91,50 @@ namespace continuousphysics {
 		bool m_velocityUnroundingEnabled = false;
 	};
 
+	namespace physics {
+
+		/// @brief updates the player's position to where it should be at the given timestamp
+		/// based on the time since the last event
+		/// @param timestamp the new timestamp to advance the player to
+		/// @param lastEventTimestamp the timestamp of the last "event" (input check, tick, collision, frame, etc.)
+		CP_API void advancePlayerToTimestamp(
+			PlayerObject* player, double timestamp, double& lastEventTimestamp);
+
+		/// @brief calculates the gravity acceleration a player would have at a given tps
+		/// @return the gravity acceleration in yvels/sec where 1 yvel is 54 units/sec
+		/// and 1 unit is 1/30th of a block
+		CP_API float getGravityAcceleration(PlayerObject* player, float tps);
+
+	} // namespace physics
+
+	namespace input {
+
+		/// @brief processes all inputs from PlayLayer.m_queuedButtons for a player at a tick,
+		/// calling advancePlayerToTimestamp and handleInput for each input event
+		CP_API void processInputs(PlayerObject* player, double tickEnd);
+
+	} // namespace input
+
+	namespace tick {
+
+		/// @brief whether to use vanilla PlayerObject::update(dt)
+		/// and skip the continuous physics logic in preTick and postTick
+		/// @return true if player is not in platformer mode or if playLayer is null or mod is disabled, false otherwise
+		CP_API bool useVanillaTick(PlayerObject* player);
+
+		/// @brief called before PlayerObject::update(dt) to pre-compensate gravity
+		CP_API void preTick(PlayerObject* player);
+
+		/// @brief called after PlayerObject::update(dt) to update physics state
+		CP_API void postTick(PlayerObject* player, float dt);
+
+	} // namespace tick
+
+	namespace patches {
+
+		/// @brief sets whether to apply nop patches to remove velocity rounding in PlayerObject::update
+		CP_API void toggleVelocityUnroundingPatches(bool enable);
+
+	} // namespace patches
+
 } // namespace continuousphysics

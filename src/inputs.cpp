@@ -1,7 +1,5 @@
 #include <ContinuousPhysics.hpp>
 
-#include "api/private.hpp"
-
 using namespace continuousphysics::physics;
 
 namespace continuousphysics::input {

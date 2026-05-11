@@ -1,7 +1,5 @@
 #include <ContinuousPhysics.hpp>
 
-#include "api/private.hpp"
-
 using namespace continuousphysics;
 
 namespace continuousphysics::physics {
@@ -151,18 +149,6 @@ namespace continuousphysics::physics {
 
 		player->setPosition({newX, newY});
 		lastEventTimestamp = timestamp;
-	}
-
-	void onPostCollision(PlayerObject* player) {
-		auto& physicsState = ContinuousPhysicsState::get();
-		auto* playerState = physicsState.tryGetPlayerState(player);
-		if (!playerState) return;
-
-		auto* playLayer = PlayLayer::get();
-		if (!playLayer) return;
-
-		playerState->m_lastEventTimestamp = playLayer->m_timestamp;
-		player->m_yVelocity = quantizeYVelocity(player->m_yVelocity);
 	}
 
 } // namespace continuousphysics::physics

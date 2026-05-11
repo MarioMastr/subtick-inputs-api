@@ -4,8 +4,6 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 
-#include "api/private.hpp"
-
 using namespace continuousphysics;
 using namespace continuousphysics::physics;
 
@@ -60,9 +58,12 @@ class $modify(GJBaseGameLayer) {
 		int result = GJBaseGameLayer::checkCollisions(object, dt, ignoreDamage);
 
 		if (Config::get().isModActive()) {
-			PlayLayer* playLayer = PlayLayer::get();
-			if (playLayer) {
-				onPostCollision(object);
+			auto* playLayer = PlayLayer::get();
+			auto& physicsState = ContinuousPhysicsState::get();
+			auto* playerState = physicsState.tryGetPlayerState(object);
+
+			if (playLayer && playerState) {
+				playerState->m_lastEventTimestamp = playLayer->m_timestamp;
 			}
 		}
 

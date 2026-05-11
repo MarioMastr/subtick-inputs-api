@@ -1,15 +1,11 @@
 #include <ContinuousPhysics.hpp>
 
-#include "api/private.hpp"
-
-using namespace continuousphysics;
-
 namespace continuousphysics::tick {
 
 	bool useVanillaTick(PlayerObject* player) {
 		PlayLayer* playLayer = PlayLayer::get();
 		return !playLayer || !Config::get().isModActive() ||
-			player->m_isDashing;
+			playLayer->m_isPlatformer;
 	}
 
 	void preTick(PlayerObject* player) {
