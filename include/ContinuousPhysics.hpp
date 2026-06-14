@@ -20,8 +20,11 @@ namespace continuousphysics {
 
 	class CP_API ContinuousPhysicsState {
 		public:
+		// lowk not sure how to add my own members to a class
 		struct PlayerState {
-			double m_lastEventTimestamp = 0.0;
+			/// @brief accumulated Y displacement adjustment for sub-tick precision.
+			/// computed in processInputs, consumed by the Y displacement midhook.
+			double m_yDispAdjustment = 0.0;
 		};
 
 		static ContinuousPhysicsState& get();
@@ -29,7 +32,7 @@ namespace continuousphysics {
 		/// @brief tries to get the corresponding PlayerState for a given PlayerObject
 		/// @return pointer to &g_physicsState.m_player1 or &g_physicsState.m_player2, or nullptr if player is null
 		PlayerState* tryGetPlayerState(PlayerObject* player) {
-			if (!player) return nullptr;
+			if (!player || !player->isVanillaPlayer()) return nullptr;
 			auto& physicsState = ContinuousPhysicsState::get();
 			return player->isPlayer1() ? &physicsState.m_player1
 									   : &physicsState.m_player2;
@@ -51,6 +54,8 @@ namespace continuousphysics {
 		public:
 		static Config& get();
 
+		bool isApiDisabled() const;
+
 		float getTPS() const {
 			return m_tps;
 		}
@@ -63,13 +68,6 @@ namespace continuousphysics {
 		}
 		void setInputHz(float v) {
 			m_inputHz = v;
-		}
-
-		bool isModActive() const {
-			return m_modActive;
-		}
-		void setModActive(bool v) {
-			m_modActive = v;
 		}
 
 		bool isVelocityUnroundingEnabled() const {
@@ -87,7 +85,6 @@ namespace continuousphysics {
 
 		float m_tps = 240.0f;
 		float m_inputHz = 240.0f;
-		bool m_modActive = false;
 		bool m_velocityUnroundingEnabled = false;
 	};
 
@@ -97,51 +94,37 @@ namespace continuousphysics {
 		/// pause/death/init, player died, platformer mode, or robtop's replay mode
 		CP_API bool useVanillaPhysics();
 
-		/// @brief updates the player's position to where it should be at the given timestamp
-		/// based on the time since the last event
-		/// @param timestamp the new timestamp to advance the player to
-		/// @param lastEventTimestamp the timestamp of the last "event" (input check, tick, collision, frame, etc.)
-		CP_API void advancePlayerToTimestamp(
-			PlayerObject* player, double timestamp, double& lastEventTimestamp);
+		CP_API float getBaseGravity(PlayerObject* player);
 
-		/// @brief calculates the gravity acceleration a player would have at a given tps
-		/// @return the gravity acceleration in yvels/sec where 1 yvel is 54 units/sec
-		/// and 1 unit is 1/30th of a block
-		CP_API float getGravityAcceleration(PlayerObject* player, float tps);
+		CP_API float getGravityCoefficient(PlayerObject* player);
+
+		CP_API double getGravPerTick(PlayerObject* player, float tps);
 
 	} // namespace physics
 
-	namespace input {
+	namespace inputs {
 
-		/// @brief processes all inputs from PlayLayer.m_queuedButtons for a player at a tick,
-		/// calling advancePlayerToTimestamp and handleInput for each input event
-		CP_API void processInputs(PlayerObject* player, double tickEnd);
+		/// @brief processes this player's inputs from PlayLayer.m_queuedButtons
+		/// for the current tick: dispatches each via handleButton + updateJump(0)
+		/// and accumulates the sub-tick Y displacement adjustment
+		/// (impulse + accel terms) into PlayerState for the midhook to apply
+		/// @param dt the tick duration (the dt passed to processQueuedButtons)
+		CP_API void processInputs(PlayerObject* player, float dt);
 
-	} // namespace input
-
-	namespace tick {
-
-		/// @brief called before PlayerObject::update(dt) to pre-compensate gravity
-		CP_API void preTick(PlayerObject* player);
-
-		/// @brief called after PlayerObject::update(dt) to update physics state
-		CP_API void postTick(PlayerObject* player, float dt);
-
-	} // namespace tick
+	} // namespace inputs
 
 	namespace patches {
 
-		/// @brief sets whether to apply nop patches to remove velocity rounding in PlayerObject::update
+		/// @brief sets whether to apply nop patches to remove manual velocity rounding in various places
 		CP_API void toggleVelocityUnroundingPatches(bool enable);
 
 	} // namespace patches
 
 	namespace prelude {
 		using namespace continuousphysics;
-		using namespace continuousphysics::input;
+		using namespace continuousphysics::inputs;
 		using namespace continuousphysics::patches;
 		using namespace continuousphysics::physics;
-		using namespace continuousphysics::tick;
 	} // namespace prelude
 
 } // namespace continuousphysics

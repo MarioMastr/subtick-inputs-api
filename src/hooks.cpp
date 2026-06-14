@@ -1,11 +1,22 @@
+// there's a couple hooks in inputs.cpp as well
+
 #include <ContinuousPhysics.hpp>
 #include <Geode/modify/CCEGLView.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
 
+#ifdef GEODE_IS_WINDOWS
+#include <safetyhook.hpp>
+#endif
+
 using namespace continuousphysics;
 using namespace continuousphysics::physics;
+using namespace continuousphysics::inputs;
+
+#ifdef GEODE_IS_WINDOWS
+static SafetyHookMid s_yDispMidHook;
+#endif
 
 class $modify(CCEGLView) {
 	void pollEvents() {
@@ -13,7 +24,10 @@ class $modify(CCEGLView) {
 		CCNode* parent;
 
 		// clang-format off
-		if (!GetFocus() 
+		if (
+		#ifdef GEODE_IS_WINDOWS
+			!GetFocus()
+		#endif
 			|| !playLayer
 			|| !(parent = playLayer->getParent())
 			|| parent->getChildByType<PauseLayer>(0)
@@ -28,54 +42,7 @@ class $modify(CCEGLView) {
 	}
 };
 
-class $modify(PlayLayer) {
-	bool init(GJGameLevel* level, bool useReplay, bool dontCreateObjects) {
-		bool result = PlayLayer::init(level, useReplay, dontCreateObjects);
-		if (!result) return false;
-
-		if (!Config::get().isModActive()) {
-			this->m_clickBetweenSteps = false;
-			this->m_clickOnSteps = false;
-		}
-
-		auto& state = ContinuousPhysicsState::get();
-		state.m_firstFrame = true;
-		state.m_player1.m_lastEventTimestamp = this->m_timestamp;
-		state.m_player2.m_lastEventTimestamp = this->m_timestamp;
-
-		return true;
-	}
-
-	void resetLevel() {
-		PlayLayer::resetLevel();
-
-		if (Config::get().isModActive()) {
-			this->m_clickBetweenSteps = false;
-			this->m_clickOnSteps = false;
-		}
-
-		auto& state = ContinuousPhysicsState::get();
-		state.m_firstFrame = true;
-		state.m_player1.m_lastEventTimestamp = this->m_timestamp;
-		state.m_player2.m_lastEventTimestamp = this->m_timestamp;
-	}
-};
-
 class $modify(GJBaseGameLayer) {
-	int checkCollisions(PlayerObject* object, float dt, bool ignoreDamage) {
-		int result = GJBaseGameLayer::checkCollisions(object, dt, ignoreDamage);
-
-		if (!useVanillaPhysics()) {
-			auto* playerState =
-				ContinuousPhysicsState::get().tryGetPlayerState(object);
-			if (playerState) {
-				playerState->m_lastEventTimestamp = this->m_timestamp;
-			}
-		}
-
-		return result;
-	}
-
 	void update(float dt) {
 		auto& state = ContinuousPhysicsState::get();
 
@@ -85,24 +52,8 @@ class $modify(GJBaseGameLayer) {
 
 		GJBaseGameLayer::update(dt);
 
-		if (useVanillaPhysics()) {
-			state.m_player1.m_lastEventTimestamp = this->m_timestamp;
-			state.m_player2.m_lastEventTimestamp = this->m_timestamp;
-			if (state.m_firstFrame) {
-				state.m_firstFrame = false;
-			}
-			return;
-		}
-
-		PlayerObject* p1 = this->m_player1;
-		PlayerObject* p2 =
-			this->m_gameState.m_isDualMode ? this->m_player2 : nullptr;
-
-		advancePlayerToTimestamp(
-			p1, this->m_timestamp, state.m_player1.m_lastEventTimestamp);
-		if (p2) {
-			advancePlayerToTimestamp(
-				p2, this->m_timestamp, state.m_player2.m_lastEventTimestamp);
+		if (state.m_firstFrame) {
+			state.m_firstFrame = false;
 		}
 	}
 };
@@ -116,3 +67,24 @@ class $modify(PlayerObject) {
 		PlayerObject::setYVelocity(velocity, type);
 	}
 };
+
+#ifdef GEODE_IS_WINDOWS
+$on_mod(Loaded) {
+	auto addr = reinterpret_cast<void*>(base::get() + 0x3895a3);
+	s_yDispMidHook = safetyhook::create_mid(addr, [](SafetyHookContext& ctx) {
+		if (useVanillaPhysics()) return;
+
+		auto* player = reinterpret_cast<PlayerObject*>(ctx.r15);
+		auto* playerState =
+			ContinuousPhysicsState::get().tryGetPlayerState(player);
+		if (!playerState) return;
+
+		if (player->m_isDashing) {
+			return;
+		}
+
+		ctx.xmm6.f64[0] += playerState->m_yDispAdjustment;
+		playerState->m_yDispAdjustment = 0.0;
+	});
+}
+#endif

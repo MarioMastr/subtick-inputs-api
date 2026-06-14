@@ -16,6 +16,14 @@
 		"gameplay",
 		"developer"
 	],
+	"settings": {
+		"api-disabled": {
+			"type": "bool",
+			"default": false,
+			"name": "Disable Continuous Physics (Master Switch)",
+			"description": "Disables all continuous physics features globally. Any dependent mods should (hopefully) revert to vanilla behavior."
+		}
+	},
 	"api": {
 		"include": [
 			"include/*.hpp"
