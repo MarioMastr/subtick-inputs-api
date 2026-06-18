@@ -35,7 +35,7 @@ Add it to your `mod.json`:
 
 ```json
 "dependencies": {
-    "chizz.continuous-physics-api": {
+    "chizz.subtick-inputs-api": {
         "version": ">=v0.0.0",
         "required": true
     }

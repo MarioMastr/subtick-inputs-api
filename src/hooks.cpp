@@ -76,9 +76,10 @@ $on_mod(Loaded) {
 		auto* player = reinterpret_cast<PlayerObject*>(ctx.r15);
 		if (!player || !player->isVanillaPlayer()) return;
 		if (player->m_isDashing) return;
+		double& yDispAdjustment = getYDispField(player);
 
-		ctx.xmm6.f64[0] += getYDispField(player);
-		getYDispField(player) = 0.0;
+		ctx.xmm6.f64[0] += yDispAdjustment;
+		yDispAdjustment = 0.0;
 	});
 }
 #endif
