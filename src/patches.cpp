@@ -1,4 +1,4 @@
-#include <ContinuousPhysics.hpp>
+#include <SubtickInputs.hpp>
 
 struct PatchGroup {
 	std::vector<Patch*> appliedPatches;
@@ -16,6 +16,9 @@ struct PatchGroup {
 				patch->setAutoEnable(false);
 				(void) patch->disable();
 				appliedPatches.push_back(patch);
+			} else {
+				log::error("Failed to create patch at offset 0x{:X}: {}",
+					offset, result.unwrapErr());
 			}
 		}
 	}
@@ -30,7 +33,7 @@ struct PatchGroup {
 static PatchGroup s_velocityUnroundingNops;
 
 // clang-format off
-namespace continuousphysics::patches {
+namespace subtickinputs::patches {
 	void toggleVelocityUnroundingPatches(bool enable) {
 		if (s_velocityUnroundingNops.appliedPatches.empty()) {
 			s_velocityUnroundingNops.init({
@@ -49,5 +52,5 @@ namespace continuousphysics::patches {
 		s_velocityUnroundingNops.toggle(enable);
 	}
 
-} // namespace continuousphysics::patches
+} // namespace subtickinputs::patches
 // clang-format on

@@ -1,18 +1,19 @@
 // there's a couple hooks in inputs.cpp as well
 
-#include <ContinuousPhysics.hpp>
 #include <Geode/modify/CCEGLView.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
-
 #ifdef GEODE_IS_WINDOWS
 #include <safetyhook.hpp>
 #endif
+#include <SubtickInputs.hpp>
 
-using namespace continuousphysics;
-using namespace continuousphysics::physics;
-using namespace continuousphysics::inputs;
+#include "internal.hpp"
+
+using namespace subtickinputs;
+using namespace subtickinputs::physics;
+using namespace subtickinputs::internal;
 
 #ifdef GEODE_IS_WINDOWS
 static SafetyHookMid s_yDispMidHook;
@@ -34,7 +35,7 @@ class $modify(CCEGLView) {
 			|| playLayer->getChildByType<EndLevelLayer>(0)
 			|| playLayer->m_playerDied)
 		{
-			ContinuousPhysicsState::get().m_firstFrame = true;
+			g_firstFrame = true;
 		}
 		// clang-format on
 
@@ -44,16 +45,14 @@ class $modify(CCEGLView) {
 
 class $modify(GJBaseGameLayer) {
 	void update(float dt) {
-		auto& state = ContinuousPhysicsState::get();
-
 		if (PlayLayer::get() && PlayLayer::get()->m_playerDied) {
-			state.m_firstFrame = true;
+			g_firstFrame = true;
 		}
 
 		GJBaseGameLayer::update(dt);
 
-		if (state.m_firstFrame) {
-			state.m_firstFrame = false;
+		if (g_firstFrame) {
+			g_firstFrame = false;
 		}
 	}
 };
@@ -75,16 +74,11 @@ $on_mod(Loaded) {
 		if (useVanillaPhysics()) return;
 
 		auto* player = reinterpret_cast<PlayerObject*>(ctx.r15);
-		auto* playerState =
-			ContinuousPhysicsState::get().tryGetPlayerState(player);
-		if (!playerState) return;
+		if (!player || !player->isVanillaPlayer()) return;
+		if (player->m_isDashing) return;
 
-		if (player->m_isDashing) {
-			return;
-		}
-
-		ctx.xmm6.f64[0] += playerState->m_yDispAdjustment;
-		playerState->m_yDispAdjustment = 0.0;
+		ctx.xmm6.f64[0] += getYDispField(player);
+		getYDispField(player) = 0.0;
 	});
 }
 #endif

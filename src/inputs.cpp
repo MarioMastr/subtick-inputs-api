@@ -1,31 +1,19 @@
-#include <ContinuousPhysics.hpp>
 #include <Geode/modify/PlayerObject.hpp>
+#include <SubtickInputs.hpp>
 
-using namespace continuousphysics::physics;
+#include "internal.hpp"
+
+using namespace subtickinputs::physics;
+using namespace subtickinputs::internal;
 
 static PlayerObject* s_lastUpdateJumpPlayer = nullptr;
 
-struct PendingWaveInput {
-	double m_ratio;
-	bool m_isPush;
-	int m_button;
-};
-
-static std::vector<PendingWaveInput> s_pendingWaveInputs[2]; // [0]=p1 [1]=p2
-
-static std::vector<PendingWaveInput>& getPendingWaveInputsForPlayer(
-	PlayerObject* player) {
-	return s_pendingWaveInputs[player->isPlayer1() ? 0 : 1];
-}
-
-namespace continuousphysics::inputs {
+namespace subtickinputs::inputs {
 
 	void processInputs(PlayerObject* player, float dt) {
 		PlayLayer* playLayer = PlayLayer::get();
 		auto& config = Config::get();
-		auto* playerState =
-			ContinuousPhysicsState::get().tryGetPlayerState(player);
-		if (!playLayer || !playerState) return;
+		if (!playLayer || !player || !player->isVanillaPlayer()) return;
 
 		double tickStart = playLayer->m_timestamp;
 		double tickDuration = static_cast<double>(dt);
@@ -34,7 +22,7 @@ namespace continuousphysics::inputs {
 		bool isPlayer1 = player->isPlayer1();
 		auto& inputQueue = playLayer->m_queuedButtons;
 
-		double tps = config.getTPS();
+		double tps = 1.0 / dt;
 		double scaledDt = 60.0 / tps * 0.9;
 		double inputChecksPerTick = config.getInputHz() / tps;
 
@@ -49,10 +37,14 @@ namespace continuousphysics::inputs {
 
 			double rawRatio = std::clamp(
 				(input.m_timestamp - tickStart) / tickDuration, 0.0, 1.0);
-			double ratio = (inputChecksPerTick <= 1.0)
-				? 0.0
-				: std::floor(rawRatio * inputChecksPerTick) /
-					inputChecksPerTick;
+
+			double ratio = rawRatio;
+			if (!config.isInstantInputsEnabled()) {
+				ratio = inputChecksPerTick <= 1.0
+					? 0.0
+					: std::floor(rawRatio * inputChecksPerTick) /
+						inputChecksPerTick;
+			}
 
 			if (isWave && !player->m_isDashing) {
 				// clang-format off
@@ -63,7 +55,7 @@ namespace continuousphysics::inputs {
 				// clang-format on
 
 				if (!ringPending) {
-					getPendingWaveInputsForPlayer(player).push_back({
+					getPendingWaveField(player).push_back({
 						ratio,
 						input.m_isPush,
 						static_cast<int>(input.m_button),
@@ -91,11 +83,10 @@ namespace continuousphysics::inputs {
 			adjustedYVel += ratio * ((preVel - postVel) + (preDv - postDv));
 		}
 
-		playerState->m_yDispAdjustment =
-			adjustedYVel * (isWave ? waveScale : scaledDt);
+		getYDispField(player) = adjustedYVel * (isWave ? waveScale : scaledDt);
 	}
 
-} // namespace continuousphysics::inputs
+} // namespace subtickinputs::inputs
 
 class $modify(PlayerObject) {
 	void updateJump(float dt) {
@@ -103,10 +94,10 @@ class $modify(PlayerObject) {
 		PlayerObject::updateJump(dt);
 	}
 
-	// split like legacy cbf for wave trail stuff
+	// split like legacy cbf for wave
 	// doesn't cause gravity issues since wave velocity is always constant
 	void update(float dt) {
-		auto& pendingWaveInputs = getPendingWaveInputsForPlayer(this);
+		auto& pendingWaveInputs = getPendingWaveField(this);
 
 		if (useVanillaPhysics() || pendingWaveInputs.empty() ||
 			!this->m_isDart || this->m_isDashing) {

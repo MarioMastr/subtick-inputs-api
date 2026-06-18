@@ -1,0 +1,83 @@
+#pragma once
+
+#include <Geode/Geode.hpp>
+
+using namespace geode::prelude;
+
+// clang-format off
+#ifdef GEODE_IS_WINDOWS
+	#ifdef SubtickInputsAPI_EXPORTING
+		#define SI_API __declspec(dllexport)
+	#else
+		#define SI_API __declspec(dllimport)
+	#endif
+#else
+	#define SI_API __attribute__((visibility("default")))
+#endif
+// clang-format on
+
+namespace subtickinputs {
+
+	class SI_API Config {
+		public:
+		static Config& get();
+
+		bool isApiDisabled() const;
+
+		float getInputHz() const {
+			return m_inputHz;
+		}
+		void setInputHz(float v) {
+			m_inputHz = v;
+		}
+
+		bool isInstantInputsEnabled() const {
+			return m_instantInputsEnabled;
+		}
+		void setInstantInputsEnabled(bool v) {
+			m_instantInputsEnabled = v;
+		}
+
+		bool isVelocityUnroundingEnabled() const {
+			return m_velocityUnroundingEnabled;
+		}
+		void setVelocityUnroundingEnabled(bool v);
+
+		Config(const Config&) = delete;
+		Config& operator=(const Config&) = delete;
+
+		private:
+		Config() = default;
+
+		float m_inputHz = 240.0f;
+		bool m_instantInputsEnabled = false;
+		bool m_velocityUnroundingEnabled = false;
+	};
+
+	namespace physics {
+
+		/// @brief whether to skip custom logic and use vanilla behavior
+		/// @return true if playLayer is null, api is disabled, first frame after
+		/// pause/death/init, player died, platformer mode, or robtop's replay mode thing
+		SI_API bool useVanillaPhysics();
+
+	} // namespace physics
+
+	namespace inputs {
+
+		/// @brief processes this player's inputs from PlayLayer.m_queuedButtons
+		/// for the current tick: dispatches each via handleButton + updateJump(0)
+		/// and accumulates the sub-tick Y displacement adjustment
+		/// (impulse + accel terms) into m_yDispAdjustment for the midhook to apply
+		/// @param dt the tick duration (the dt passed to processQueuedButtons)
+		SI_API void processInputs(PlayerObject* player, float dt);
+
+	} // namespace inputs
+
+	namespace prelude {
+		using namespace subtickinputs;
+		using namespace subtickinputs::inputs;
+		using namespace subtickinputs::physics;
+	} // namespace prelude
+
+} // namespace subtickinputs

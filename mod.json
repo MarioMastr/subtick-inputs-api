@@ -1,16 +1,13 @@
 {
 	"geode": "5.7.1",
 	"gd": {
-		"win": "2.2081",
-		"android": "2.2081",
-		"mac": "2.2081",
-		"ios": "2.2081"
+		"win": "2.2081"
 	},
-	"id": "chizz.continuous-physics-api",
-	"name": "Continuous Physics API",
-	"version": "v1.0.0",
+	"id": "chizz.subtick-inputs-api",
+	"name": "Subtick Inputs API",
+	"version": "0.1.0",
 	"developer": "chizz",
-	"description": "API for developers who want subtick physics.",
+	"description": "API for devs who want subtick input handling.",
 	"tags": [
 		"api",
 		"gameplay",
@@ -20,8 +17,8 @@
 		"api-disabled": {
 			"type": "bool",
 			"default": false,
-			"name": "Disable Continuous Physics (Master Switch)",
-			"description": "Disables all continuous physics features globally. Any dependent mods should (hopefully) revert to vanilla behavior."
+			"name": "Disable Subtick Inputs (Master Switch)",
+			"description": "Disables all subtick input features globally. Any dependent mods should (hopefully) revert to vanilla behavior."
 		}
 	},
 	"api": {
@@ -30,6 +27,6 @@
 		]
 	},
 	"links": {
-		"source": "https://github.com/ch-zzzy/GDContinuousPhysicsAPI"
+		"source": "https://github.com/ch-zzzy/Subtick-Inputs-API"
 	}
 }

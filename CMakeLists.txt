@@ -8,14 +8,13 @@ else()
 endif()
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-project(ContinuousPhysicsAPI VERSION 1.0.0)
+project(SubtickInputsAPI VERSION 1.0.0)
 
-# SafetyHook for midhooks
 include(FetchContent)
 FetchContent_Declare(
     safetyhook
     GIT_REPOSITORY https://github.com/cursey/safetyhook.git
-    GIT_TAG v0.4.1
+    GIT_TAG main
 )
 set(SAFETYHOOK_FETCH_ZYDIS ON)
 FetchContent_MakeAvailable(safetyhook)
@@ -23,7 +22,7 @@ FetchContent_MakeAvailable(safetyhook)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 target_include_directories(${PROJECT_NAME} PUBLIC include)
-target_compile_definitions(${PROJECT_NAME} PRIVATE ContinuousPhysicsAPI_EXPORTING)
+target_compile_definitions(${PROJECT_NAME} PRIVATE SubtickInputsAPI_EXPORTING)
 target_link_libraries(${PROJECT_NAME} safetyhook)
 
 if (NOT DEFINED ENV{GEODE_SDK})

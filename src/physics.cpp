@@ -1,22 +1,24 @@
-#include <ContinuousPhysics.hpp>
+#include <SubtickInputs.hpp>
 
-using namespace continuousphysics;
+#include "internal.hpp"
 
-namespace continuousphysics::physics {
+using namespace subtickinputs;
+
+namespace subtickinputs::physics {
 
 	bool useVanillaPhysics() {
 		// clang-format off
 		PlayLayer* playLayer = PlayLayer::get();
 		return !playLayer
 		|| Config::get().isApiDisabled()
-		|| ContinuousPhysicsState::get().m_firstFrame
+		|| subtickinputs::internal::g_firstFrame
 		|| playLayer->m_playerDied
 		|| playLayer->m_isPlatformer
 		|| playLayer->m_useReplay;
 		// clang-format on
 	}
 
-	float getBaseGravity(PlayerObject* player) {
+	static float getBaseGravity(PlayerObject* player) {
 		if (player->isInBasicMode()) {
 			return player->m_gravity * player->m_gravityMod;
 		} else {
@@ -24,9 +26,9 @@ namespace continuousphysics::physics {
 		}
 	}
 
-	// tried my best to recreate the conditions
+	// tried my best to recreate the conditions from ghidra
 	// i wouldn't be surprised if something's wrong
-	float getGravityCoefficient(PlayerObject* player) {
+	static float getGravityCoefficient(PlayerObject* player) {
 		if (player->m_isShip) {
 			double yVel = player->m_yVelocity;
 			bool upsideDown = player->m_isUpsideDown;
@@ -96,4 +98,4 @@ namespace continuousphysics::physics {
 		return -1 * player->flipMod() * gravPerTick;
 	}
 
-} // namespace continuousphysics::physics
+} // namespace subtickinputs::physics
