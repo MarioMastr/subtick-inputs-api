@@ -94,7 +94,7 @@ class $modify(PlayerObject) {
 		PlayerObject::updateJump(dt);
 	}
 
-	// split like legacy cbf for wave
+	// split like cbf for wave
 	// doesn't cause gravity issues since wave velocity is always constant
 	void update(float dt) {
 		auto& pendingWaveInputs = getPendingWaveField(this);
