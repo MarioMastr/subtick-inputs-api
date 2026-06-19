@@ -2,7 +2,7 @@
 
 An API that lets consumer mods register inputs at sub-tick resolution while keeping the player's physics faithful to vanilla.
 
-The API does nothing on its own. A consumer mod (like [CBF+](https://github.com/ch-zzzy/CBF-Plus)) uses it to deliver finer input precision. Vanilla does all the physics, but the API applies Y-displacement correction on top of it so that an input processed partway through a tick lands where vanilla would have put it at that moment.
+The API does nothing on its own. A consumer mod (like [Superb Input Precision](https://github.com/ch-zzzy/Superb-Input-Precision)) uses it to deliver finer input precision. Vanilla does all the physics, but the API applies Y-displacement correction on top of it so that an input processed partway through a tick lands where vanilla would have put it at that moment.
 
 ## How it works
 
