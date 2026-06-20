@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.3
+
+- rounds getGravPerTick to 3dp if velocity unrounding is not enabled
+
 ## v0.1.2
 
 - updated mod.json and README, and slightly simplified the midhook
