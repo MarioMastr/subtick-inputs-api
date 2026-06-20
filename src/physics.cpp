@@ -95,6 +95,12 @@ namespace subtickinputs::physics {
 			gravPerTick /= sizeScale;
 		}
 
+		// vanilla doesn't round the gravity itself but it rounds velocity instead
+		// so ideally i'd do that but i can't be bothered rn
+		if (!Config::get().isVelocityUnroundingEnabled()) {
+			gravPerTick = std::round(gravPerTick * 1000.0) / 1000.0;
+		}
+
 		return -1 * player->flipMod() * gravPerTick;
 	}
 

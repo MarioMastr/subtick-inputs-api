@@ -77,6 +77,9 @@ namespace subtickinputs::inputs {
 				player->updateJump(0.0f);
 			}
 
+			// the handleButton + updateJump method to "dispatch" an input could be wrong
+			// i'll let the players figure that one out 😛
+
 			double postVel = player->m_yVelocity;
 			double postDv = getGravPerTick(player, tps);
 
