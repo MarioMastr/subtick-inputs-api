@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.0
+
+- replaced the y-displacement midhook with a full reimplementation of PlayerObject::update, potential for non-windows support 😮 (backup incase it goes wrong)
+- fixed some wave stuff, added subtick collisions for them
+- removed the SafetyHook dependency
+- general refactoring
+
 ## v0.2.0
 
 - removed processInputs PlayerObject* param

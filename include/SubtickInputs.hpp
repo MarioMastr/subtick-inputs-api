@@ -18,6 +18,11 @@ using namespace geode::prelude;
 
 namespace subtickinputs {
 
+	/// @brief whether to skip custom logic and use vanilla behavior
+	/// @return true if playLayer is null, api is disabled, first frame after
+	/// pause/death/init, player died, platformer mode, or robtop's replay mode thing
+	bool SI_API useVanilla();
+
 	class SI_API Config {
 		public:
 		static Config& get();
@@ -56,9 +61,8 @@ namespace subtickinputs {
 
 	namespace physics {
 
-		/// @brief whether to skip custom logic and use vanilla behavior
-		/// @return true if playLayer is null, api is disabled, first frame after
-		/// pause/death/init, player died, platformer mode, or robtop's replay mode thing
+		/// @brief this function (and namespace) is deprecated and will be removed in v1.0.0
+		[[deprecated("use useVanilla() instead")]]
 		SI_API bool useVanillaPhysics();
 
 	} // namespace physics
@@ -72,7 +76,7 @@ namespace subtickinputs {
 		/// @brief processes this player's inputs from PlayLayer.m_queuedButtons
 		/// for the current tick: dispatches each via handleButton + updateJump(0)
 		/// and accumulates the sub-tick Y displacement adjustment
-		/// (impulse + accel terms) into m_yDispAdjustment for the midhook to apply
+		/// (impulse + accel terms) into m_yDispAdjustment for SIPlayerObject::update to apply
 		/// @param dt the tick duration (the dt passed to processQueuedButtons)
 		SI_API void processInputs(float dt);
 
@@ -81,7 +85,6 @@ namespace subtickinputs {
 	namespace prelude {
 		using namespace subtickinputs;
 		using namespace subtickinputs::inputs;
-		using namespace subtickinputs::physics;
 	} // namespace prelude
 
 } // namespace subtickinputs

@@ -49,9 +49,8 @@ Then include the header and drive it from your input hook:
 using namespace subtickinputs::prelude;
 
 // in your processQueuedButtons hook, per player:
-if (!useVanillaPhysics()) {
+if (!useVanilla()) {
     processInputs(dt);
-    this->m_queuedButtons.clear();
 }
 GJBaseGameLayer::processQueuedButtons(dt, clearInputQueue);
 ```

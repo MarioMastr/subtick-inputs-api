@@ -1,7 +1,5 @@
 #include <SubtickInputs.hpp>
 
-#include "internal.hpp"
-
 static bool s_apiDisabled = false;
 
 namespace subtickinputs {
@@ -13,11 +11,6 @@ namespace subtickinputs {
 
 	bool Config::isApiDisabled() const {
 		return s_apiDisabled;
-	}
-
-	void Config::setVelocityUnroundingEnabled(bool v) {
-		m_velocityUnroundingEnabled = v;
-		patches::toggleVelocityUnroundingPatches(v);
 	}
 
 } // namespace subtickinputs

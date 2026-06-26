@@ -1,13 +1,95 @@
-#include <Geode/modify/PlayerObject.hpp>
 #include <SubtickInputs.hpp>
 
-#include "internal.hpp"
+#include "SIPlayerObject.hpp"
 
-using namespace subtickinputs::physics;
-using namespace subtickinputs::internal;
+using namespace subtickinputs;
+using namespace subtickinputs::fields;
 
 static bool s_updateJumpCalledP1 = false;
 static bool s_updateJumpCalledP2 = false;
+
+static float getBaseGravity(PlayerObject* player) {
+	if (player->isInBasicMode()) {
+		return player->m_gravity * player->m_gravityMod;
+	} else {
+		return 0.958199f * player->m_gravityMod;
+	}
+}
+
+// tried my best to recreate the conditions from ghidra
+// i wouldn't be surprised if something's wrong
+static float getGravityCoefficient(PlayerObject* player) {
+	if (player->m_isShip) {
+		double yVel = player->m_yVelocity;
+		bool upsideDown = player->m_isUpsideDown;
+		bool holding = player->m_jumpBuffered;
+		bool wrongDir = (!upsideDown && yVel < 0) || (upsideDown && yVel > 0);
+		bool fbugged = player->playerIsFallingBugged();
+		bool accel = player->m_isAccelerating; // this field name sucks
+		// im pretty sure m_isAccelerating is just true whenever yvel
+		// is NOT within (-6.4, 8.0) and false otherwise
+		// it's also like one tick stale but oh well
+
+		float coeff = 0.8f;
+		if (holding) {
+			if (!accel || wrongDir) coeff = -1.0f;
+		} else {
+			if (accel && wrongDir) coeff = -1.0f;
+			if (!fbugged) coeff = 1.2f;
+		}
+		float randomScaleThing = (holding && fbugged) ? 0.5f : 0.4f;
+		return coeff * randomScaleThing;
+	}
+
+	if (player->m_isBird) {
+		return player->playerIsFallingBugged() ? 0.4f : 0.6f;
+	}
+
+	if (player->m_isBall) return 0.6f;
+	if (player->m_isDart) return 0.0f;
+	if (player->m_isRobot) return 0.9f;
+	if (player->m_isSpider) return 0.6f;
+	if (player->m_isSwing) {
+		if (player->m_vehicleSize != 1.0f)
+			return 0.6f;
+		else
+			return 0.4f;
+	}
+
+	return 1.0f;
+}
+
+static double getGravPerTick(PlayerObject* player, float tps) {
+	if (player->m_isDart) {
+		return 0.0;
+	}
+
+	if (player->m_isOnGround) {
+		return 0.0;
+	}
+
+	if (player->m_isRobot && player->m_maybeIsBoosted && player->m_jumpBuffered &&
+		!player->m_touchedPad && player->m_accelerationOrSpeed < 1.5f) {
+		return 0.0;
+	}
+
+	double scaledDt = 60.0 / tps * 0.9;
+
+	double gravPerTick = getBaseGravity(player) * getGravityCoefficient(player) * scaledDt;
+
+	if (player->isFlying()) {
+		double sizeScale = (player->m_vehicleSize != 1.0f) ? 0.85 : 1.0;
+		gravPerTick /= sizeScale;
+	}
+
+	// vanilla doesn't round the gravity itself but it rounds velocity instead
+	// so ideally i'd do that but i can't be bothered rn
+	if (!Config::get().isVelocityUnroundingEnabled()) {
+		gravPerTick = std::round(gravPerTick * 1000.0) / 1000.0;
+	}
+
+	return -1 * player->flipMod() * gravPerTick;
+}
 
 namespace subtickinputs::inputs {
 
@@ -76,21 +158,13 @@ namespace subtickinputs::inputs {
 			}
 
 			if (playerState.isWave && player && !player->m_isDashing) {
-				// clang-format off
-				bool ringPending =
-				input.m_isPush &&
-				player->m_touchingRings &&
-				player->m_touchingRings->count() > 0;
-				// clang-format on
-
-				if (!ringPending) {
-					getPendingWaveField(player).push_back({
-						ratio,
-						input.m_isPush,
-						static_cast<int>(input.m_button),
-					});
-					continue;
-				}
+				getPendingWaveField(player).push_back({
+					ratio,
+					input.m_isPush,
+					static_cast<int>(input.m_button),
+				});
+				// this is processed in PlayerObject::update in hooks.cpp
+				continue;
 			}
 
 			double preVel1 = p1.playerObj ? p1.playerObj->m_yVelocity : 0.0;
@@ -137,6 +211,8 @@ namespace subtickinputs::inputs {
 		if (p2.playerObj) {
 			getYDispField(p2.playerObj) = p2.adjustedYVel * (p2.isWave ? p2.waveScale : scaledDt);
 		}
+
+		inputQueue.clear();
 	}
 
 } // namespace subtickinputs::inputs
@@ -151,40 +227,5 @@ class $modify(PlayerObject) {
 				s_updateJumpCalledP2 = true;
 		}
 		PlayerObject::updateJump(dt);
-	}
-
-	// split like cbf for wave
-	// doesn't cause gravity issues since wave velocity is always constant
-	void update(float dt) {
-		auto& pendingWaveInputs = getPendingWaveField(this);
-
-		if (useVanillaPhysics() || pendingWaveInputs.empty() || !this->m_isDart ||
-			this->m_isDashing) {
-			pendingWaveInputs.clear();
-			PlayerObject::update(dt);
-			return;
-		}
-
-		PlayLayer* playLayer = PlayLayer::get();
-		bool isPlayer1 = this->isPlayer1();
-		double lastRatio = 0.0;
-
-		CCPoint preTickPosition = this->getPosition();
-
-		for (auto& input : pendingWaveInputs) {
-			double segment = std::max(0.0, input.m_ratio - lastRatio);
-			if (segment > 0.0) {
-				PlayerObject::update(segment * dt);
-			}
-			if (playLayer) {
-				playLayer->handleButton(input.m_isPush, input.m_button, isPlayer1);
-			}
-			lastRatio = std::max(lastRatio, input.m_ratio);
-		}
-		pendingWaveInputs.clear();
-
-		PlayerObject::update((1.0 - lastRatio) * dt);
-
-		this->m_lastPosition = preTickPosition;
 	}
 };

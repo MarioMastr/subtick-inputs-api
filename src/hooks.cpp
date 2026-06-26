@@ -1,85 +1,145 @@
-// there's a couple hooks in inputs.cpp as well
+// there's a hook in inputs.cpp as well
 
-#include <Geode/modify/CCEGLView.hpp>
-#include <Geode/modify/GJBaseGameLayer.hpp>
-#include <Geode/modify/PlayLayer.hpp>
-#include <Geode/modify/PlayerObject.hpp>
-#ifdef GEODE_IS_WINDOWS
-#include <safetyhook.hpp>
-#endif
 #include <SubtickInputs.hpp>
 
-#include "internal.hpp"
+#include "SIPlayerObject.hpp"
 
 using namespace subtickinputs;
 using namespace subtickinputs::physics;
-using namespace subtickinputs::internal;
+using namespace subtickinputs::fields;
 
+static bool s_firstFrame = true;
+
+namespace subtickinputs {
+	bool useVanilla() {
+		// clang-format off
+		PlayLayer* playLayer = PlayLayer::get();
+		return !playLayer
+		|| Config::get().isApiDisabled()
+		|| s_firstFrame
+		|| playLayer->m_playerDied
+		|| playLayer->m_isPlatformer
+		|| playLayer->m_useReplay;
+		// clang-format on
+	}
+} // namespace subtickinputs
+
+// copied from cbf
 #ifdef GEODE_IS_WINDOWS
-static SafetyHookMid s_yDispMidHook;
-#endif
-
+#include <Geode/modify/CCEGLView.hpp>
 class $modify(CCEGLView) {
 	void pollEvents() {
 		PlayLayer* playLayer = PlayLayer::get();
 		CCNode* parent;
 
 		// clang-format off
-		if (
-		#ifdef GEODE_IS_WINDOWS
-			!GetFocus()
-		#endif
+		if (!GetFocus()
 			|| !playLayer
 			|| !(parent = playLayer->getParent())
 			|| parent->getChildByType<PauseLayer>(0)
 			|| playLayer->getChildByType<EndLevelLayer>(0)
 			|| playLayer->m_playerDied)
 		{
-			g_firstFrame = true;
+			s_firstFrame = true;
 		}
 		// clang-format on
 
 		CCEGLView::pollEvents();
 	}
 };
+#else
+#include <Geode/modify/CCScheduler.hpp>
+class $modify(CCScheduler) {
+	void update(float dt) {
+		PlayLayer* playLayer = PlayLayer::get();
+		CCNode* parent;
 
+		// clang-format off
+		if (!playLayer
+			|| !(parent = playLayer->getParent())
+			|| parent->getChildByType<PauseLayer>(0)
+			|| playLayer->getChildByType<EndLevelLayer>(0)
+			|| playLayer->m_playerDied)
+		{
+			s_firstFrame = true;
+		}
+		// clang-format on
+
+		CCScheduler::update(dt);
+	}
+};
+#endif
+
+#include <Geode/modify/GJBaseGameLayer.hpp>
 class $modify(GJBaseGameLayer) {
 	void update(float dt) {
 		if (PlayLayer::get() && PlayLayer::get()->m_playerDied) {
-			g_firstFrame = true;
+			s_firstFrame = true;
 		}
 
 		GJBaseGameLayer::update(dt);
 
-		if (g_firstFrame) {
-			g_firstFrame = false;
+		if (s_firstFrame) {
+			s_firstFrame = false;
 		}
 	}
 };
 
-class $modify(PlayerObject) {
-	void setYVelocity(double velocity, int type) {
-		if (Config::get().isVelocityUnroundingEnabled()) {
-			this->m_yVelocity = velocity;
-			return;
-		}
-		PlayerObject::setYVelocity(velocity, type);
+// split like cbf for wave
+// doesn't cause gravity issues since wave velocity is always constant
+void SIPlayerObject::update(float dt) {
+	if (useVanilla()) {
+		PlayerObject::update(dt);
+		return;
 	}
-};
 
-#ifdef GEODE_IS_WINDOWS
-$on_mod(Loaded) {
-	auto addr = reinterpret_cast<void*>(base::get() + 0x3895a3);
-	s_yDispMidHook = safetyhook::create_mid(addr, [](SafetyHookContext& ctx) {
-		if (useVanillaPhysics()) return;
+	auto& pendingWaveInputs = getPendingWaveField(this);
 
-		auto* player = reinterpret_cast<PlayerObject*>(ctx.r15);
-		if (!player || !player->isVanillaPlayer()) return;
-		if (player->m_isDashing) return;
-		double& yDispAdjustment = getYDispField(player);
+	if (pendingWaveInputs.empty() || !this->m_isDart || this->m_isDashing) {
+		pendingWaveInputs.clear();
+		processPlayerTick(dt);
+		return;
+	}
 
-		ctx.xmm6.f64[0] += yDispAdjustment;
-		yDispAdjustment = 0.0;
-	});
+	constexpr double SMALLEST_FLOAT = std::numeric_limits<float>::min();
+
+	PlayLayer* playLayer = PlayLayer::get();
+	double lastRatio = 0.0;
+
+	CCPoint preTickPosition = this->getPosition();
+	bool firstLoop = true;
+	bool startedOnGround = this->m_isOnGround;
+
+	for (auto& input : pendingWaveInputs) {
+		double segment = std::clamp(input.m_ratio - lastRatio, SMALLEST_FLOAT, 1.0);
+
+		PlayerObject::update(segment * dt);
+
+		if (firstLoop && ((this->m_yVelocity < 0) ^ this->m_isUpsideDown)) {
+			this->m_isOnGround = startedOnGround;
+		}
+
+		playLayer->checkCollisions(this, 0.0f, true);
+		this->resetCollisionLog(false);
+
+		playLayer->handleButton(input.m_isPush, input.m_button, this->isPlayer1());
+
+		lastRatio = std::max(lastRatio, input.m_ratio);
+		firstLoop = false;
+	}
+	pendingWaveInputs.clear();
+
+	PlayerObject::update((1.0 - lastRatio) * dt);
+
+	this->m_lastPosition = preTickPosition;
+
+	// TODO: updateRotation thing
 }
-#endif
+
+void SIPlayerObject::setYVelocity(double velocity, int type) {
+	if (Config::get().isVelocityUnroundingEnabled()) {
+		this->m_yVelocity = velocity;
+		return;
+	}
+	PlayerObject::setYVelocity(velocity, type);
+}
