@@ -85,6 +85,7 @@ namespace subtickinputs {
 	namespace prelude {
 		using namespace subtickinputs;
 		using namespace subtickinputs::inputs;
+		using namespace subtickinputs::physics;
 	} // namespace prelude
 
 } // namespace subtickinputs
